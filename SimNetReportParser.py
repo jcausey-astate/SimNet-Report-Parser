@@ -1,20 +1,16 @@
+#!/usr/bin/env python
+#
 # SimNetExamReportParser.py
 #
-# Jason L Causey  2009   jason.causey@cs.astate.edu
+# Jason L Causey  2009-2016   jason.causey@cs.astate.edu
 #
-# Parses a SimNet exam report (.csv) file and produces a corresponding
-# .csv file with one line per student, such that all exams and attempts for
-# each exam are listed (grouped) on the student's row.
+# Parses a SimNet exam, lesson, and project report (.csv) files and 
+# produces a corresponding .csv file with one line per student, such that 
+# all assignments and attempts for each assignment are listed (grouped by
+# assignment type and assignment title) on the student's row.
 #
 # Usage:
-#  SimNetExamReportParser.py [inputfile | [-h | --help]] [outputfile] [padvalue]
-#             Read the .csv file [inputfile], print output to the .csv
-#             file [outputfile], using [padvalue] as a filler value for
-#             any missing exam fields.
-#             If [inputfile] or [outputfile] is missing, you will get
-#             a dialog window.  [padvalue] defaults to empty.
-#
-#             -h or --help for first argument prints this usage message.
+#  SimNetExamReportParser.py 
 ################################################################################
 
 
@@ -53,20 +49,6 @@ def getOutputFile():
 def cleanKey(key):
    key = key.lower().lstrip().replace(' ', '').replace('.','')
    return key
-
-# Usage output:
-def usage():
-   print "\n"
-   print "usage: SimNetExamReportParser.py [inputfile | [-h | --help]] [outputfile] [padvalue]"
-   print "            Read the .csv file [inputfile], print output to the .csv"
-   print "            file [outputfile], using [padvalue] as a filler value for"
-   print "            any missing exam fields."
-   print "            If [inputfile] or [outputfile] is missing, you will get"
-   print "            a dialog window.  [padvalue] defaults to empty.\n"
-   print "            -h or --help for first argument prints this usage message."
-   print
-   print
-   return
 
 def readLessonFile(file):
    lessonInfo = {}
@@ -387,16 +369,20 @@ def writeCombinedFile(file, lessonInfo, examInfo, projectInfo, takeHighestExam, 
                            outputrow.append(missingScoreMark)
                         currentAttempt += 1
                   else:
-                     highest = -9999999999
+                     highest = None
                      currentAttempt = 1
-                     if(str(currentAttempt) in ppts[key].keys()):
+                     if(str(currentAttempt) in ppts[key].keys() and ppts[key][str(currentAttempt)] != ''):
                         highest = ppts[key][str(currentAttempt)]
+                     currentAttempt += 1
                      while(currentAttempt <= nAttempts):
                         if(str(currentAttempt) in ppts[key].keys()):
-                           if(float(ppts[key][str(currentAttempt)]) > float(highest)):
+                           # Project attempt scores can be empty, be careful of that:
+                           if(highest == None or (ppts[key][str(currentAttempt)] != '' and float(ppts[key][str(currentAttempt)]) > float(highest))):
                               highest = ppts[key][str(currentAttempt)]
                         currentAttempt += 1
-                     if(highest > -9999999999):
+                     if(highest != None):
+                        if highest == '':
+                           print("Error: blank score for {0}".format(currentAttempt))
                         outputrow.append(highest)
                      else:
                         outputrow.append(missingScoreMark)
@@ -427,16 +413,17 @@ def writeCombinedFile(file, lessonInfo, examInfo, projectInfo, takeHighestExam, 
                            outputrow.append(missingScoreMark)
                         currentAttempt += 1
                   else:
-                     highest = -9999999999
+                     highest = None
                      currentAttempt = 1
                      if(str(currentAttempt) in ppts[key].keys()):
                         highest = ppts[key][str(currentAttempt)]
+                     currentAttempt += 1
                      while(currentAttempt <= nAttempts):
                         if(str(currentAttempt) in ppts[key].keys()):
-                           if(float(ppts[key][str(currentAttempt)]) > float(highest)):
+                           if(highest == None or float(ppts[key][str(currentAttempt)]) > float(highest)):
                               highest = ppts[key][str(currentAttempt)]
                         currentAttempt += 1
-                     if(highest > -9999999999):
+                     if(highest != None):
                         outputrow.append(highest)
                      else:
                         outputrow.append(missingScoreMark)
@@ -463,6 +450,7 @@ class SNRParser(Frame):
       self.projectFileName = ""
       self.examNameBox.delete(0,END)
       self.lessonNameBox.delete(0,END)
+      self.projectNameBox.delete(0,END)
       self.goButton.configure(state=DISABLED)
 
    def createWidgets(self):
@@ -565,8 +553,6 @@ class SNRParser(Frame):
          exit(0)
       else:
          self.reInit()
-
-
 
 
 # Main execution:
