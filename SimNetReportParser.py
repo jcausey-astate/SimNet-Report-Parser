@@ -58,12 +58,14 @@ def readLessonFile(file):
       ourDialect = csv.Sniffer().sniff(csvfile.read(2048))
       csvfile.seek(0)
 
-      reader   = csv.reader(csvfile, dialect=ourDialect)
-      lineNo   = 0   # Count lines
-      records  = {}  # Full record for each item
-      titles   = {}  # The titles themselves, keyed by a cleaned version.
-      names    = {}  # To get a sorted list of names for output
-      percent  = {}  # Stores percent by title and student ID.
+      reader      = csv.reader(csvfile, dialect=ourDialect)
+      lineNo      = 0   # Count lines
+      records     = {}  # Full record for each item
+      titles      = {}  # The titles themselves, keyed by a cleaned version.
+      names       = {}  # To get a sorted list of names for output
+      possible    = {}  # Total tasks by title
+      earned      = {}  # Points earned by title and student ID.
+      percent     = {}  # Stores percent by title and student ID.
 
       # We need to watch for each new lesson name and also find the largest
       # number of attempts for each.  This info will be used in creating the
@@ -74,26 +76,32 @@ def readLessonFile(file):
          #StudentID,LastName,FirstName,Title,Minutes,Date,Date,NumberComplete,TotalTasks,PercentComplete
          #    0    ,   1    ,   2     ,  3  ,  4    , 5  , 6  ,      7       ,     8    ,     9
          if lineNo > 0:
-            # Add this line to the proper student's record (by ID).
-            if(not str(line[0]) in records.keys()):
-               records[str(line[0])] = []
-            records[str(line[0])].append(line)
+            SID = str(line[0])
+            # Add this line to the proper student's record (by ID).            
+            if(not SID in records.keys()):
+               records[SID] = []
+            records[SID].append(line)
             # Add this lesson title to the lesson's record:
             # Lessons only have one attempt...
             key = cleanKey(str(line[3]))
             if(not str(key) in titles.keys()):
                titles[key] = {}
             titles[key]['title'] = str(line[3])
-            if(not str(line[0]) in percent.keys()):
-               percent[str(line[0])] = {}
-            percent[str(line[0])][key] = line[9]  # Store percent by ID and title.
+            if(not SID in percent.keys()):
+               percent[SID] = {}
+            percent[SID][key] = line[9]   # Store percent by ID and title.
+            if(not SID in earned.keys()):
+               earned[SID] = {}
+            earned[SID][key] = line[7]    # Store earned by ID and title.
+            if(not key in possible.keys()):
+               possible[key] = line[8]          # Store possible    by title
             # Add this student's name to the names list as a key.  Value is
             # the ID number (used for alphabetical reverse-mapping).
             if(not str(line[1])+str(line[2]) in names.keys()):
                key = str(line[1])+str(line[2])
                #clean up the name to make a good alphabetize-able key:
                key = cleanKey(key)
-               names[key] = str(line[0])
+               names[key] = SID
          else:
             # The first line is headers.
             headers = line
@@ -102,6 +110,8 @@ def readLessonFile(file):
       csvfile.close()  # We're done with this file.
       lessonInfo['records']  = records
       lessonInfo['titles']   = titles
+      lessonInfo['possible'] = possible
+      lessonInfo['earned']   = earned
       lessonInfo['percent']  = percent
       lessonInfo['names']    = names
    return lessonInfo
@@ -119,6 +129,7 @@ def readExamFile(file):
       records  = {}  # Full record for each item
       attempts = {}  # To keep track of highest value of attempts per title
       titles   = {}  # The titles themselves, keyed by a cleaned version.
+      possible = {}  # Points possible, by exam
       names    = {}  # To get a sorted list of names for output
 
       # We need to watch for each new exam name and also find the largest
@@ -134,12 +145,14 @@ def readExamFile(file):
          # points they've "partially" earned instead of a zero...
          if lineNo > 0:
             # Add this line to the proper student's record (by ID).
-            if(not str(line[0]) in records.keys()):
-               records[str(line[0])] = []
-            records[str(line[0])].append(line)
+            SID = str(line[0])
+            if(not SID in records.keys()):
+               records[SID] = []
+            records[SID].append(line)
             # Add this exam title to the exam's record:
-            if(not str(cleanKey(line[3])) in titles.keys()):
-               key = cleanKey(str(line[3]))
+            title_key = cleanKey(str(line[3]))
+            if(not title_key in titles.keys()):
+               key = title_key
                attempts[key] = 1
                titles[key] = str(line[3])
             # If we see a new highest attempt number, that is the new max
@@ -152,7 +165,9 @@ def readExamFile(file):
                key = str(line[1])+str(line[2])
                #clean up the name to make a good alphabetize-able key:
                key = cleanKey(key)
-               names[key] = str(line[0])
+               names[key] = SID
+            if(not title_key in possible.keys()):
+               possible[title_key] = line[11]
          else:
             # The first line is headers.
             headers = line
@@ -162,6 +177,7 @@ def readExamFile(file):
       examInfo['records']  = records
       examInfo['attempts'] = attempts
       examInfo['titles']   = titles
+      examInfo['possible'] = possible
       examInfo['names']    = names
    return examInfo
 
@@ -179,6 +195,7 @@ def readProjectFile(file):
       attempts = {}  # To keep track of highest value of attempts per title
       titles   = {}  # The titles themselves, keyed by a cleaned version.
       names    = {}  # To get a sorted list of names for output
+      possible = {}  # Points possible
       percent  = {}  # Stores percent by title and student ID.
          
       # We need to watch for each new lesson name and also find the largest
@@ -195,8 +212,9 @@ def readProjectFile(file):
                records[str(line[0])] = []
             records[str(line[0])].append(line)
             # Add this project title to the project's record:
-            if(not str(cleanKey(line[3])) in titles.keys()):
-               key           = cleanKey(str(line[3]))
+            title_key = cleanKey(str(line[3]))
+            if(not title_key in titles.keys()):
+               key           = title_key
                attempts[key] = 1
                titles[key]   = str(line[3])
             # If we see a new highest attempt number, that is the new max
@@ -206,6 +224,8 @@ def readProjectFile(file):
             if(not str(line[0]) in percent.keys()):
                percent[str(line[0])] = {}
             percent[str(line[0])][key] = line[9]  # Store percent by ID and title.
+            if(not title_key in possible.keys()):
+               possible[title_key] = line[8]            # Store possible points by title.
             # Add this student's name to the names list as a key.  Value is
             # the ID number (used for alphabetical reverse-mapping).
             if(not str(line[1])+str(line[2]) in names.keys()):
@@ -226,214 +246,255 @@ def readProjectFile(file):
       projectInfo['names']    = names
    return projectInfo
 
-def writeCombinedFile(file, lessonInfo, examInfo, projectInfo, takeHighestExam, selectPointsOrCorrect, takeHighestProject, missingScoreMark = ""):
+def writeCombinedFile(file, lessonInfo, examInfo, projectInfo, takeHighestExam, selectPointsOrCorrect, takeHighestProject, missingScoreMark = "", usePoints=False):
    # PRE-PROCESS:  Sort the student names list and exam names list:
-      #First make sure we have the 'names' key in both examInfo and lessonInfo and projectInfo;
-      if(not 'names' in lessonInfo.keys()):
-         lessonInfo['names']  = {}
-      if(not 'names' in examInfo.keys()):
-         examInfo['names']    = {}
-      if(not 'names' in projectInfo.keys()):
-         projectInfo['names'] = {}
-      #Now do the same for 'titles'
-      if(not 'titles' in lessonInfo.keys()):
-         lessonInfo['titles'] = {}
-      if(not 'titles' in examInfo.keys()):
-         examInfo['titles'] = {}
-      if(not 'titles' in projectInfo.keys()):
-         projectInfo['titles'] = {}
-      # Merge names from exams and lessons into a single list of names:
-      d = {}
-      for k in examInfo['names'].keys(), lessonInfo['names'].keys(), projectInfo['names'].keys():
-         for x in k:
-            d[x] = 1
-      sortedNames = d.keys()
-      del d
-      sortedNames.sort()
-      sortedExamTitles    = examInfo['titles'].keys()
-      sortedExamTitles.sort()
-      sortedLessonTitles  = lessonInfo['titles'].keys()
-      sortedLessonTitles.sort()
-      sortedProjectTitles = projectInfo['titles'].keys()
-      sortedProjectTitles.sort()
+   #First make sure we have the 'names' key in both examInfo and lessonInfo and projectInfo;
+   if(not 'names' in lessonInfo.keys()):
+      lessonInfo['names']  = {}
+   if(not 'names' in examInfo.keys()):
+      examInfo['names']    = {}
+   if(not 'names' in projectInfo.keys()):
+      projectInfo['names'] = {}
+   #Now do the same for 'titles'
+   if(not 'titles' in lessonInfo.keys()):
+      lessonInfo['titles'] = {}
+   if(not 'titles' in examInfo.keys()):
+      examInfo['titles'] = {}
+   if(not 'titles' in projectInfo.keys()):
+      projectInfo['titles'] = {}
+   # Merge names from exams and lessons into a single list of names:
+   d = {}
+   for k in examInfo['names'].keys(), lessonInfo['names'].keys(), projectInfo['names'].keys():
+      for x in k:
+         d[x] = 1
+   sortedNames = d.keys()
+   del d
+   sortedNames.sort()
+   sortedExamTitles    = examInfo['titles'].keys()
+   sortedExamTitles.sort()
+   sortedLessonTitles  = lessonInfo['titles'].keys()
+   sortedLessonTitles.sort()
+   sortedProjectTitles = projectInfo['titles'].keys()
+   sortedProjectTitles.sort()
 
-      # BEGIN OUTPUT PHASE:
-      # Get the output file going and do output.
-      if(file != ''):
-         # Ensure a .csv extension.
-         if(file.rfind('.csv') == -1):
-            file = file + '.csv'
+   # BEGIN OUTPUT PHASE:
+   # Get the output file going and do output.
+   if(file != ''):
+      # Ensure a .csv extension.
+      if(file.rfind('.csv') == -1):
+         file = file + '.csv'
 
-         # Open the output file:
-         csvfile = csv.writer(open(file, 'w'), quoting=csv.QUOTE_ALL)
+      # Open the output file:
+      csvfile = csv.writer(open(file, 'w'), quoting=csv.QUOTE_ALL)
 
-         # Input data order (exams)
-         #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,ExamStarted,ExamSpan(d.hh:mm:ss),ExamEnded,NumberCorrect,TotalQuestions,PercentCorrect,NumberPoints,TotalPoints,PercentPoints,Status
-         #    0    ,  1     ,    2    ,  3  ,  4    ,   5   ,  6 ,     7     ,         8          ,    9    ,      10     ,      11      ,     12       ,     13     ,    14     ,     15      ,  16
-         # Data for lessons is all in lesson structure:
-         # titles, names, percent
-         # percent is stored by [ID][titleKey]
-         useExamPctColumn = 12  # Use "percent correct" by default (instructor can edit this one)
-         if(selectPointsOrCorrect == True):
-            useExamPctColumn = 15  # Use "percent points" instead (instructor CANNOT edit this field)
-         # Output to a new CSV file such that each student (by ID) has a single
-         # row.  Each row has:
-         # StudentID,LastName,FirstName,Lesson1....LessonN,Exam1attempt1...attamptN,...ExamNAttempt1...attemptN
+      # Input data order (exams)
+      #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,ExamStarted,ExamSpan(d.hh:mm:ss),ExamEnded,NumberCorrect,TotalQuestions,PercentCorrect,NumberPoints,TotalPoints,PercentPoints,Status
+      #    0    ,  1     ,    2    ,  3  ,  4    ,   5   ,  6 ,     7     ,         8          ,    9    ,      10     ,      11      ,     12       ,     13     ,    14     ,     15      ,  16
+      # Data for lessons is all in lesson structure:
+      # titles, names, percent
+      # percent is stored by [ID][titleKey]
+      examPctColumn = 12  # Use "percent correct" by default (instructor can edit this one)
+      if(selectPointsOrCorrect == True):
+         examPctColumn = 15  # Use "percent points" instead (instructor CANNOT edit this field)
+      # Output to a new CSV file such that each student (by ID) has a single
+      # row.  Each row has:
+      # StudentID,LastName,FirstName,Lesson1....LessonN,Exam1attempt1...attamptN,...ExamNAttempt1...attemptN
 
-         # The first line will be headers.  Build them.  The headers will
-         # Depend on the lessons, exams, and number of attempts for each exam.
-         outputHeaders    = []
-         outputHeaders.append("Student ID")
-         outputHeaders.append("Last Name")
-         outputHeaders.append("First Name")
+      # The first line will be headers.  Build them.  The headers will
+      # Depend on the lessons, exams, and number of attempts for each exam.
+      outputHeaders    = []
+      outputHeaders.append("Student ID")
+      outputHeaders.append("Last Name")
+      outputHeaders.append("First Name")
+
+      # Lessons first
+      for key in sortedLessonTitles:
+         outputHeaders.append(str(lessonInfo['titles'][key]['title']))
+      # Then projects
+      for key in sortedProjectTitles:
+         nAttempts = projectInfo['attempts'][key]
+         currentAttempt = 0
+         if(nAttempts > 1 and not takeHighestProject):
+            while(currentAttempt < nAttempts):
+               outputHeaders.append(str(projectInfo['titles'][key]) + str(" [Attempt ") \
+                                  + str(currentAttempt + 1) + "]")
+               currentAttempt += 1
+         else:
+            outputHeaders.append(str(projectInfo['titles'][key]))
+      # Then exams
+      for key in sortedExamTitles:
+         nAttempts = examInfo['attempts'][key]
+         currentAttempt = 0
+         if(nAttempts > 1 and not takeHighestExam):
+            while(currentAttempt < nAttempts):
+               outputHeaders.append(str(examInfo['titles'][key]) + str(" [Attempt ") \
+                                  + str(currentAttempt + 1) + "]")
+               currentAttempt += 1
+         else:
+            outputHeaders.append(str(examInfo['titles'][key]))
+
+      csvfile.writerow(outputHeaders)
+
+      # If we want points-based output, we need a row for max points for each assignment:
+      if usePoints:
+         maxPtsRow = []
+         maxPtsRow.append("Pts. Possible") # SID (use as label)
+         maxPtsRow.append("") # Last Name  (empty cell)
+         maxPtsRow.append("") # First Name (empty cell)
 
          # Lessons first
          for key in sortedLessonTitles:
-            outputHeaders.append(str(lessonInfo['titles'][key]['title']))
+            maxPtsRow.append(str(lessonInfo['possible'][key]))
          # Then projects
          for key in sortedProjectTitles:
             nAttempts = projectInfo['attempts'][key]
             currentAttempt = 0
             if(nAttempts > 1 and not takeHighestProject):
                while(currentAttempt < nAttempts):
-                  outputHeaders.append(str(projectInfo['titles'][key]) + str(" [Attempt ") \
-                                     + str(currentAttempt + 1) + "]")
+                  maxPtsRow.append(str(projectInfo['possible'][key]))
                   currentAttempt += 1
             else:
-               outputHeaders.append(str(projectInfo['titles'][key]))
+               maxPtsRow.append(str(projectInfo['possible'][key]))
          # Then exams
          for key in sortedExamTitles:
             nAttempts = examInfo['attempts'][key]
             currentAttempt = 0
             if(nAttempts > 1 and not takeHighestExam):
                while(currentAttempt < nAttempts):
-                  outputHeaders.append(str(examInfo['titles'][key]) + str(" [Attempt ") \
-                                     + str(currentAttempt + 1) + "]")
+                  maxPtsRow.append(str(examInfo['possible'][key]))
                   currentAttempt += 1
             else:
-               outputHeaders.append(str(examInfo['titles'][key]))
+               maxPtsRow.append(str(examInfo['possible'][key]))
 
-         csvfile.writerow(outputHeaders)
+         csvfile.writerow(maxPtsRow)         
 
-         # For each student (in sorted order), create exactly 1 row:
-         for name in sortedNames:
-            outputrow = []
-            SID       = ''
-            # Each row has:
-            # StudentID,LastName,FirstName,Lesson1...LessonN,Project1attempt1..attemptN...ProjectNattempt1,...attemptN,Exam1attempt1...attamptN,...ExamNAttempt1...attemptN
-            if(len(examInfo) > 0 and name in examInfo['names'].keys()):
-               outputrow.append(examInfo['records'][examInfo['names'][name]][0][0])
-               outputrow.append(examInfo['records'][examInfo['names'][name]][0][1])
-               outputrow.append(examInfo['records'][examInfo['names'][name]][0][2])
-               SID = examInfo['records'][examInfo['names'][name]][0][0]
-            elif(len(projectInfo) > 0 and name in projectInfo['names'].keys()):
-               outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][0])
-               outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][1])
-               outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][2])
-               SID = projectInfo['records'][projectInfo['names'][name]][0][0]
-            elif(len(lessonInfo) > 0):
-               outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][0])
-               outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][1])
-               outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][2])
-               SID = lessonInfo['records'][lessonInfo['names'][name]][0][0]
 
-            # For each lesson, output its percent points:
-            for key in sortedLessonTitles:
-               if(SID in lessonInfo['percent'].keys() and key in lessonInfo['percent'][SID].keys()):
-                  outputrow.append(lessonInfo['percent'][SID][key])
-               else:
-                  outputrow.append(missingScoreMark)
-            #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,Points,TotalPoints,Percent,Status
-            #    0    ,  1     ,    2    ,  3  , 4     ,   5   , 6  ,  7   ,     8     ,   9   ,  10
-            # Get the list of Percent Points in order for this Project title:
-            if(len(projectInfo['titles']) > 0):
-               ppts = {}
-               for key in sortedProjectTitles:
-                  ppts[key] = {}
+      # For each student (in sorted order), create exactly 1 row:
+      for name in sortedNames:
+         outputrow = []
+         SID       = ''
+         # Each row has:
+         # StudentID,LastName,FirstName,Lesson1...LessonN,Project1attempt1..attemptN...ProjectNattempt1,...attemptN,Exam1attempt1...attamptN,...ExamNAttempt1...attemptN
+         if(len(examInfo) > 0 and name in examInfo['names'].keys()):
+            outputrow.append(examInfo['records'][examInfo['names'][name]][0][0])
+            outputrow.append(examInfo['records'][examInfo['names'][name]][0][1])
+            outputrow.append(examInfo['records'][examInfo['names'][name]][0][2])
+            SID = examInfo['records'][examInfo['names'][name]][0][0]
+         elif(len(projectInfo) > 0 and name in projectInfo['names'].keys()):
+            outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][0])
+            outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][1])
+            outputrow.append(projectInfo['records'][projectInfo['names'][name]][0][2])
+            SID = projectInfo['records'][projectInfo['names'][name]][0][0]
+         elif(len(lessonInfo) > 0):
+            outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][0])
+            outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][1])
+            outputrow.append(lessonInfo['records'][lessonInfo['names'][name]][0][2])
+            SID = lessonInfo['records'][lessonInfo['names'][name]][0][0]
 
-               if(name in projectInfo['names'].keys()):
-                  for record in projectInfo['records'][projectInfo['names'][name]]:
-                     key = cleanKey(record[3])
-                     attempt = record[4]
-                     ppts[key][attempt] = record[9]
+         #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,Points,TotalPoints,Percent,Status
+         #    0    ,  1     ,    2    ,  3  , 4     ,   5   , 6  ,  7   ,     8     ,   9   ,  10
 
-               # Now output the PercentPoints field for each project title:
-               for key in sortedProjectTitles:
-                  nAttempts = projectInfo['attempts'][key]
-                  currentAttempt = 1
-                  if(not takeHighestProject):
-                     while(currentAttempt <= nAttempts):
-                        if(str(currentAttempt) in ppts[key].keys()):
-                           outputrow.append(ppts[key][str(currentAttempt)])
-                        else:
-                           outputrow.append(missingScoreMark)
-                        currentAttempt += 1
-                  else:
-                     highest = None
-                     currentAttempt = 1
-                     if(str(currentAttempt) in ppts[key].keys() and ppts[key][str(currentAttempt)] != ''):
-                        highest = ppts[key][str(currentAttempt)]
-                     currentAttempt += 1
-                     while(currentAttempt <= nAttempts):
-                        if(str(currentAttempt) in ppts[key].keys()):
-                           # Project attempt scores can be empty, be careful of that:
-                           if(highest == None or (ppts[key][str(currentAttempt)] != '' and float(ppts[key][str(currentAttempt)]) > float(highest))):
-                              highest = ppts[key][str(currentAttempt)]
-                        currentAttempt += 1
-                     if(highest != None):
-                        if highest == '':
-                           print("Error: blank score for {0}".format(currentAttempt))
-                        outputrow.append(highest)
-                     else:
-                        outputrow.append(missingScoreMark)
-            
-            #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,ExamStarted,ExamSpan(d.hh:mm:ss),ExamEnded,NumberCorrect,TotalQuestions,PercentCorrect,NumberPoints,TotalPoints,PercentPoints,Status
-            #    0    ,  1     ,    2    ,  3  ,  4    ,   5   ,  6 ,     7     ,         8          ,    9    ,      10     ,      11      ,     12       ,     13     ,    14     ,     15      ,  16
-            # Get the list of Percent Points in order for this exam title:
-            if(len(examInfo['titles']) > 0):
-               ppts = {}
-               for key in sortedExamTitles:
-                  ppts[key] = {}
+         # For each lesson, output its percent points (or points):
+         for key in sortedLessonTitles:
+            if(SID in lessonInfo['percent'].keys() and key in lessonInfo['percent'][SID].keys()):
+               scoreKey = 'percent' if not usePoints else 'earned'
+               outputrow.append(lessonInfo[scoreKey][SID][key])
+            else:
+               outputrow.append(missingScoreMark)
+         
+         # Get the list of Percent Points in order for this Project title:
+         if(len(projectInfo['titles']) > 0):
+            ppts = {}
+            for key in sortedProjectTitles:
+               ppts[key] = {}
 
-               if(name in examInfo['names'].keys()):
-                  for record in examInfo['records'][examInfo['names'][name]]:
-                     key = cleanKey(record[3])
-                     attempt = record[4]
-                     ppts[key][attempt] = record[useExamPctColumn]
+            if(name in projectInfo['names'].keys()):
+               for record in projectInfo['records'][projectInfo['names'][name]]:
+                  scoreKey = 9 if not usePoints else 7
+                  key = cleanKey(record[3])
+                  attempt = record[4]
+                  ppts[key][attempt] = record[scoreKey]
 
-               # Now output the PercentPoints field for each exam title:
-               for key in sortedExamTitles:
-                  nAttempts = examInfo['attempts'][key]
-                  currentAttempt = 1
-                  if(not takeHighestExam):
-                     while(currentAttempt <= nAttempts):
-                        if(str(currentAttempt) in ppts[key].keys()):
-                           outputrow.append(ppts[key][str(currentAttempt)])
-                        else:
-                           outputrow.append(missingScoreMark)
-                        currentAttempt += 1
-                  else:
-                     highest = None
-                     currentAttempt = 1
+            # Now output the PercentPoints field for each project title:
+            for key in sortedProjectTitles:
+               nAttempts = projectInfo['attempts'][key]
+               currentAttempt = 1
+               if(not takeHighestProject):
+                  while(currentAttempt <= nAttempts):
                      if(str(currentAttempt) in ppts[key].keys()):
-                        highest = ppts[key][str(currentAttempt)]
-                     currentAttempt += 1
-                     while(currentAttempt <= nAttempts):
-                        if(str(currentAttempt) in ppts[key].keys()):
-                           if(highest == None or float(ppts[key][str(currentAttempt)]) > float(highest)):
-                              highest = ppts[key][str(currentAttempt)]
-                        currentAttempt += 1
-                     if(highest != None):
-                        outputrow.append(highest)
+                        outputrow.append(ppts[key][str(currentAttempt)])
                      else:
                         outputrow.append(missingScoreMark)
+                     currentAttempt += 1
+               else:
+                  highest = None
+                  currentAttempt = 1
+                  if(str(currentAttempt) in ppts[key].keys() and ppts[key][str(currentAttempt)] != ''):
+                     highest = ppts[key][str(currentAttempt)]
+                  currentAttempt += 1
+                  while(currentAttempt <= nAttempts):
+                     if(str(currentAttempt) in ppts[key].keys()):
+                        # Project attempt scores can be empty, be careful of that:
+                        if(highest == None or (ppts[key][str(currentAttempt)] != '' and float(ppts[key][str(currentAttempt)]) > float(highest))):
+                           highest = ppts[key][str(currentAttempt)]
+                     currentAttempt += 1
+                  if(highest != None):
+                     if highest == '':
+                        print("Error: blank score for {0}".format(currentAttempt))
+                     outputrow.append(highest)
+                  else:
+                     outputrow.append(missingScoreMark)
+         
+         #StudentID,LastName,FirstName,Title,Attempt,Minutes,Date,ExamStarted,ExamSpan(d.hh:mm:ss),ExamEnded,NumberCorrect,TotalQuestions,PercentCorrect,NumberPoints,TotalPoints,PercentPoints,Status
+         #    0    ,  1     ,    2    ,  3  ,  4    ,   5   ,  6 ,     7     ,         8          ,    9    ,      10     ,      11      ,     12       ,     13     ,    14     ,     15      ,  16
+         # Get the list of Percent Points in order for this exam title:
+         if(len(examInfo['titles']) > 0):
+            ppts = {}
+            for key in sortedExamTitles:
+               ppts[key] = {}
 
-            csvfile.writerow(outputrow)
+            if(name in examInfo['names'].keys()):
+               for record in examInfo['records'][examInfo['names'][name]]:
+                  scoreKey = examPctColumn if not usePoints else 13
+                  key = cleanKey(record[3])
+                  attempt = record[4]
+                  ppts[key][attempt] = record[scoreKey]
+                  if round((float(record[examPctColumn]) / 100.0) * float(record[14])) > ppts[key][attempt]:
+                     print("Error: higher score for ({0} {1} {2}: {3}) according to Percent than for points".format(record[0], record[1], record[2], record[3]))
 
-         return True
-      # If the user doesn't choose an output file, we can't continue.
-      else:
-         return False
+            # Now output the PercentPoints field for each exam title:
+            for key in sortedExamTitles:
+               nAttempts = examInfo['attempts'][key]
+               currentAttempt = 1
+               if(not takeHighestExam):
+                  while(currentAttempt <= nAttempts):
+                     if(str(currentAttempt) in ppts[key].keys()):
+                        outputrow.append(ppts[key][str(currentAttempt)])
+                     else:
+                        outputrow.append(missingScoreMark)
+                     currentAttempt += 1
+               else:
+                  highest = None
+                  currentAttempt = 1
+                  if(str(currentAttempt) in ppts[key].keys()):
+                     highest = ppts[key][str(currentAttempt)]
+                  currentAttempt += 1
+                  while(currentAttempt <= nAttempts):
+                     if(str(currentAttempt) in ppts[key].keys()):
+                        if(highest == None or float(ppts[key][str(currentAttempt)]) > float(highest)):
+                           highest = ppts[key][str(currentAttempt)]
+                     currentAttempt += 1
+                  if(highest != None):
+                     outputrow.append(highest)
+                  else:
+                     outputrow.append(missingScoreMark)
+
+         csvfile.writerow(outputrow)
+
+      return True
+   # If the user doesn't choose an output file, we can't continue.
+   else:
+      return False
 
 class SNRParser(Frame):
    def __init__(self, master=None):
@@ -479,7 +540,7 @@ class SNRParser(Frame):
       self.usePctPoints = BooleanVar()
       self.examUsePctPointsCheckbox = Checkbutton(self, text="Use % Points column not % Correct (DANGER).", variable=self.usePctPoints, command=self.warnPctPoints)
       self.examUsePctPointsCheckbox.grid(column=0,row=3,sticky=W,padx=25, columnspan=3)
-
+      
       self.lessonNameLabel = Label(self, text="Lesson Report:")
       self.lessonNameLabel.grid(column=0,row=4,sticky=W)
       self.lessonNameBox = Entry(self)
@@ -498,13 +559,17 @@ class SNRParser(Frame):
       self.projectTakeHighestAttemptCheckbox = Checkbutton(self, text="Keep only the best project attempt.", variable=self.projectTakeHighestAttempt)
       self.projectTakeHighestAttemptCheckbox.grid(column=0,row=6,sticky=W,padx=25, columnspan=3)
 
+      self.usePoints = BooleanVar()
+      self.usePointsCheckbox = Checkbutton(self, text="Use points, not percents.", variable=self.usePoints)
+      self.usePointsCheckbox.grid(column=0,row=7,sticky=W, columnspan=3)
+
       self.missingScoreValueBox = Entry(self, width=10)
-      self.missingScoreValueBox.grid(column=2,row=7, sticky=W)
+      self.missingScoreValueBox.grid(column=2,row=8, sticky=W)
       self.missingScoreLabel = Label(self, text="Insert this value for missing scores:")
-      self.missingScoreLabel.grid(column=0,row=7,sticky=W, columnspan=2)
+      self.missingScoreLabel.grid(column=0,row=8,sticky=W, columnspan=2)
 
       self.goButton = Button ( self, text="Generate!",command=self.generate, state=DISABLED)
-      self.goButton.grid(columnspan=3, row=8, rowspan=2, sticky=S, pady=15)
+      self.goButton.grid(columnspan=3, row=9, rowspan=2, sticky=S, pady=15)
 
    def warnPctPoints(self):
       if(self.usePctPoints.get() == True):
@@ -542,7 +607,9 @@ class SNRParser(Frame):
       examInfo       = readExamFile(self.examFileName)
       projectInfo    = readProjectFile(self.projectFileName)
       outputFileName = getOutputFile()
-      if(writeCombinedFile(outputFileName, lessonInfo, examInfo, projectInfo, self.examTakeHighestAttempt.get(), self.usePctPoints.get(), self.projectTakeHighestAttempt.get(), self.missingScoreValueBox.get())):
+      if(writeCombinedFile(outputFileName, lessonInfo, examInfo, projectInfo, 
+            self.examTakeHighestAttempt.get(), self.usePctPoints.get(), self.projectTakeHighestAttempt.get(), 
+            self.missingScoreValueBox.get(), self.usePoints.get())):
          self.msg = Message(self,text="Finished.  Output file generated OK.")
          #self.msg.grid()
       else:
